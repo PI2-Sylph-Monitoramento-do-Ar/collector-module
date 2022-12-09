@@ -1,62 +1,35 @@
-import os
-import random
-import datetime as dt
+import signal
+import logging
 from time import sleep
 
-from typing import Tuple
+from sensors import TemperatureSensor, CarbonMonoxideSensor
 
 
-class TemperatureSensor:
-    DIRECTORY = './data/'
-    FILE = 'temperatures.csv'
+logger = logging.getLogger(__name__)
 
-    def __init__(self) -> None:
-        # if the directory doesn't exist, create it
-        os.makedirs(self.DIRECTORY, exist_ok=True)
-
-        # if file doesn't exist, create it
-        if os.path.isfile(os.path.join(self.DIRECTORY, self.FILE)) is False:
-            with open(os.path.join(self.DIRECTORY, self.FILE), 'w') as file:
-                print('datetime;temperature', file=file)
-
-    def get_temperature(self) -> Tuple[float, dt.datetime]:
-        """
-        Returns a random temperature between 15 and 35, and the datetime.
-        Also saves the temperature in a file with the datetime as name.
-        """
-        temperature = float(random.randint(15, 35))
-        datetime = dt.datetime.now()
-
-        self.save_data(temperature, datetime)
-
-        return temperature, datetime
-
-    def save_data(self, temperature: float, datetime: dt.datetime):
-        if isinstance(datetime, dt.datetime) is False:
-            raise TypeError((
-                'The datetime must be a dt.datetime! '
-                f'Recieved: {type(datetime)}'
-            ))
-
-        if isinstance(temperature, float) is False:
-            raise TypeError((
-                'The temperature must be a float! '
-                f'Recieved: {type(temperature)}'
-            ))
-
-        try:
-            with open(os.path.join(self.DIRECTORY, self.FILE), 'a') as file:
-                print(f'{datetime};{temperature}', file=file)
-        except OSError as e:
-            print(f'Error: {e}')
 
 if __name__ == '__main__':
+    IS_SHUTTING_DOWN = False
+
+    def graceful_exit(*args, **kwargs):
+        """
+        This function is called when the worker receives a stop signal.
+        This function signals that the worker should stop as soon as possible.
+        """
+        global IS_SHUTTING_DOWN
+        IS_SHUTTING_DOWN = True
+
+    signal.signal(signal.SIGINT, graceful_exit)
+    signal.signal(signal.SIGTERM, graceful_exit)
 
     temperature_sensor = TemperatureSensor()
+    co_sensor = CarbonMonoxideSensor()
 
-    while True:
-        temperature, datetime = temperature_sensor.get_temperature()
+    while not IS_SHUTTING_DOWN:
+        temperature, datetime = temperature_sensor.measure()
+        co_concentration, datetime = co_sensor.measure()
 
         print(f'Temperatura: {temperature}ºC')
+        print(f'Concentração de CO: {co_concentration}ppm')
         print('----------------------------------')
-
+        sleep(1)

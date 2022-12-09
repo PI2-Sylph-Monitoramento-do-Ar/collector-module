@@ -19,12 +19,20 @@ class Uploader:
     be processed.
     """
 
-    def __init__(self, data_directory: str, sleep_time: int = 5):
+    def __init__(
+        self,
+        data_directory: str,
+        sleep_time: int = 5,
+        batch_size: int = 100,
+    ):
         if os.path.isdir(data_directory) is False:
             raise ValueError('The directory does not exist!')
 
         self.data_dir = data_directory
         self.sleep_time = sleep_time
+
+        self.batch_size = batch_size
+        self.batch_queue = []
 
     @staticmethod
     def get_or_create_file_position(filepath: str):
@@ -66,8 +74,22 @@ class Uploader:
     def upload_data(self, data: dict):
         """
         Upload the data to the server
+        TODO: Implement this method
         """
-        print(data)
+        logger.info(data)
+
+        self.batch_queue.append(data)
+
+        if len(self.batch_queue) >= self.batch_size:
+            # logger.info('Batch size of %s reached, uploading data to the server', self.batch_size)
+
+            # for data in self.batch_queue:
+            #     logger.info(data)
+
+            # TODO: Send the data to the server
+            # logger.info('Data uploaded to the server')
+
+            self.batch_queue = []
 
     def process_file(self, filepath: str) -> bool:
         """
@@ -85,6 +107,7 @@ class Uploader:
             line = file.readline()
             while line:
                 something_new = True
+                # logger.info('New data found in file %s', filepath)
                 extract_data = self.extract_data(line)
                 self.upload_data(extract_data)
                 print(file.tell(), file=file_seek)
@@ -100,58 +123,25 @@ class Uploader:
             logger.info('Searching for new data in monitored files')
             for file in os.listdir(self.data_dir):
                 if file.endswith('.csv'):
-                    logger.info("Searching for new data in file '%s'", file)
+                    # logger.info("Searching for new data in file '%s'", file)
 
                     filepath = f'{self.data_dir}/{file}'
                     something_new |= self.process_file(filepath)
 
-                    if something_new is True:
-                        logger.info('New data found in file %s', file)
-                    else:
+                    if something_new is False:
                         logger.info('No new data found in file %s', file)
 
             # If all files in the directory are processed and there is no
             # new data, it sleeps for 30 seconds.
             if something_new is False:
-                logger.info('No new data found in any of the monitored files, sleeping for %s seconds', self.sleep_time)
+                logger.info((
+                    'No new data found in any of the monitored '
+                    'files, sleeping for %s seconds'),
+                    self.sleep_time
+                )
                 sleep(self.sleep_time)
 
 if __name__ == '__main__':
     uploader = Uploader('./data')
-
     uploader.watch()
-
-
-
-
-# def process(line: str):
-#     line = line.strip()
-#     datetime, temperature = line.split(';')
-#     data = {'datetime': datetime, 'temperature': temperature}
-#     print(data)
-
-# if __name__ == '__main__':
-#     while True:
-#         for file_data in os.listdir(DATA_DIRECTORY):
-#             if file_data.endswith('.csv'):
-#                 file_position: str = get_file_position(file_data)
-#                 last_position: int = get_last_line(file_position)
-
-#                 filepath = f'{DATA_DIRECTORY}/{file_data}'
-#                 with open(filepath, 'r') as file, open(file_position, 'a') as file_seek:
-#                     file.seek(last_position)
-
-#                     line = file.readline()
-
-#                     while line:
-#                         process(line)
-#                         next_position = file.tell()
-#                         print(next_position, file=file_seek)
-#                         line = file.readline()
-
-
-
-
-
-
 
