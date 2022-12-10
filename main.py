@@ -23,13 +23,12 @@ if __name__ == '__main__':
     signal.signal(signal.SIGTERM, graceful_exit)
 
     temperature_sensor = TemperatureSensor()
-    co_sensor = CarbonMonoxideSensor()
+    # co_sensor = CarbonMonoxideSensor()
 
     while not IS_SHUTTING_DOWN:
         temperature, datetime = temperature_sensor.measure()
-        co_concentration, datetime = co_sensor.measure()
+        # co_concentration, datetime = co_sensor.measure()
 
         print(f'Temperatura: {temperature}ºC')
-        print(f'Concentração de CO: {co_concentration}ppm')
+        # print(f'Concentração de CO: {co_concentration}ppm')
         print('----------------------------------')
-        sleep(1)

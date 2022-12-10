@@ -5,12 +5,10 @@ import logging
 import datetime as dt
 from typing import Tuple
 
+import Adafruit_DHT
+
 
 logger = logging.getLogger(__name__)
-
-
-i = 0
-j = 6000
 
 
 class Sensor:
@@ -78,11 +76,15 @@ class TemperatureSensor(Sensor):
     VARIABLE_AND_UNIT = 'temperature(Celsius)'
 
     def get_variable(self) -> float:
-        # TODO: Implement this method
+        DHT_SENSOR_NUMBER = 11
+        DATA_PIN = 21
+
         temperature = float(random.randint(15, 35))
-        global i
-        temperature = i
-        i += 1
+        humidity, temperature = Adafruit_DHT.read_retry(
+            DHT_SENSOR_NUMBER,
+            DATA_PIN,
+        )
+
         return temperature
 
 
