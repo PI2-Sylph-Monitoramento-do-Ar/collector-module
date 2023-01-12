@@ -4,7 +4,7 @@ from paho.mqtt import client as mqtt_client
 
 broker = 'broker.emqx.io'
 port = 1883
-topic = 'esp32/pi2/sensor/bmp280'
+topic = 'esp32/pi2/sensor'
 client_id = f'python-mqtt-{random.randint(0, 100)}'
 
 
