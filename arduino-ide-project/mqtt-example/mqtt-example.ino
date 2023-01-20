@@ -2,8 +2,8 @@
 #include <PubSubClient.h>
 #include <Wire.h>
 
-const char* ssid = "LA Lakers ";
-const char* password = "pandaemel";
+const char* ssid     = "";
+const char* password = "";
 const char* mqtt_server = "broker.emqx.io";
 
 

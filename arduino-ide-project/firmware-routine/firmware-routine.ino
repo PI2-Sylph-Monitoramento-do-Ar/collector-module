@@ -3,21 +3,32 @@
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
 #include <PubSubClient.h>
+
 #include "SPIFFS.h"
+#include <MQUnifiedsensor.h>
 
 
-const char* mqtt_server = "broker.emqx.io";
-const char* topic = "esp32/pi2/sensor";
+const char* mqtt_server    = "broker.emqx.io";
+const char* topic          = "esp32/pi2/sensor";
 const char* DATA_FILE_NAME = "/data.txt";
-const char* SSID = "";
-const char* PASSWORD = "";
+const char* SSID           = "";
+const char* PASSWORD       = "";
 
 
-/* Tempo que a ESP32 vai ficar dormindo */
-#define TIME_TO_SLEEP  1
+#define TIME_TO_SLEEP             1  /* Dormir por X minutos => Sugerido: 5 minutos  */
+#define UPLOAD_DATA_INTERVAL_S    5  /* De quanto em quanto tempo será feito o upload de dados  => Sugerido: 15 MINUTOS */
 
-/* De quanto em quanto tempo será feito o upload de dados  => 5 SEGUNDOS */
-#define UPLOAD_DATA_INTERVAL_S 5
+
+#define MQ_131_GPIO_NUMBER  13
+#define MQ_2_GPIO_NUMBER    12
+#define Board               ("ESP-32")
+#define Type                ("MQ-131")
+#define Voltage_Resolution  (5)
+#define ADC_Bit_Resolution  (10)
+#define RatioMQ131CleanAir  (15)
+
+MQUnifiedsensor MQ131(Board, Voltage_Resolution, ADC_Bit_Resolution, MQ_131_GPIO_NUMBER, Type);
+// MQUnifiedsensor MQ2(Board, Voltage_Resolution, ADC_Bit_Resolution, MQ_2_GPIO_NUMBER, Type);
 
 /* Quantidade de vezes que a ESP32 acordou */
 RTC_DATA_ATTR unsigned long amount_of_awakeups = 0;
@@ -35,6 +46,14 @@ void setup(){
   delay(1000); //Take some time to open up the Serial Monitor
   Serial.println(); Serial.println(); Serial.println();
 
+
+  setupMQ131Sensor();
+
+
+  // pinMode(MQ_131_GPIO_NUMBER, INPUT);
+  // pinMode(MQ_2_GPIO_NUMBER, INPUT);
+
+
   setDeepSleepConfig();
   setWiFiConnection();
   FixClockTime();
@@ -43,6 +62,7 @@ void setup(){
 }
 
 void loop(){
+  unsigned int mqtt_tries = 0;
   while ( !client.connected() ) {
     Serial.print("Connecting to MQTT...");
     if (client.connect("ESP32Producer")) {
@@ -52,8 +72,13 @@ void loop(){
     else {
       Serial.print("failed with state: ");
       Serial.println(client.state());
-      Serial.println("try again in 5 seconds");
-      delay(5000);
+      Serial.println("try again in 1 seconds");
+      delay(1000);
+
+      if((mqtt_tries++) > 5) {
+        Serial.println("Failed to connect to MQTT server. Going to sleep.");
+        esp_deep_sleep_start();
+      }
     }
   }
   client.loop(); // Do not delete this line
@@ -61,9 +86,12 @@ void loop(){
   amount_of_awakeups += 1;
   Serial.println("Quantidade de vezes que acordei: " + String(amount_of_awakeups));
 
-  collect_and_save_temperature();
-  collect_and_save_pressure();
-  collect_and_save_carbon_monoxide();
+
+  collect_and_save_ozone();
+  //collect_and_save_smoke();
+  // collect_and_save_temperature();
+  // collect_and_save_pressure();
+  // collect_and_save_carbon_monoxide();
 
 
   if(time_to_upload()) {
@@ -78,6 +106,23 @@ void loop(){
 }
 
 
+int collect_and_save_ozone() {
+  MQ131.update();
+  float ozone_ppm = MQ131.readSensorR0Rs();
+
+  Serial.print("Ozone: "); Serial.print(ozone_ppm); Serial.println(" ppm");
+
+  // MQ131.serialDebug();
+
+  // float ozone = analogRead(MQ_131_GPIO_NUMBER);
+  // return save_variable_to_file(ozone, "ozone");
+  return 0;
+}
+
+int collect_and_save_smoke() {
+  float smoke = analogRead(MQ_2_GPIO_NUMBER);
+  return save_variable_to_file(smoke, "smoke");
+}
 
 int collect_and_save_temperature() {
   float temperature = random(15, 30);
@@ -313,4 +358,38 @@ void upload_to_server() {
   file.close();
 
   deleteFile(DATA_FILE_NAME);
+}
+
+
+
+void setupMQ131Sensor() {
+  Serial.print("Setting up MQ131 sensor... ");
+  MQ131.setRegressionMethod(1); //_PPM =  a*ratio^b
+  MQ131.setA(23.943);
+  MQ131.setB(-1.11);
+  MQ131.init();
+
+  float calcR0 = 0;
+  for(int i = 1; i <= 10; i ++) {
+    MQ131.update();
+    calcR0 += MQ131.calibrate(RatioMQ131CleanAir);
+  }
+
+  MQ131.setR0(calcR0/10);
+
+  if(isinf(calcR0)) {
+    Serial.println("Warning: Conection issue, R0 is infinite (Open circuit detected) please check your wiring and supply");
+    delay(10000);
+    esp_deep_sleep_start();
+  }
+
+
+  if(calcR0 == 0){
+    Serial.println("Warning: Conection issue found, R0 is zero (Analog pin shorts to ground) please check your wiring and supply");
+    delay(10000);
+    esp_deep_sleep_start();
+  }
+
+  MQ131.serialDebug(true);
+  Serial.println("OK");
 }
