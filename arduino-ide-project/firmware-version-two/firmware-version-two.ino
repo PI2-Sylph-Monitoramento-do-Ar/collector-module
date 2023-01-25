@@ -12,11 +12,13 @@
 #define HIBERNATION_TIME_S              2           /* Tempo que a ESP32 fica em deep sleep */
 #define AMOUNT_OF_AWAKENINGS_TO_UPLOAD  5           /* Após X despertares é feito upload */
 
-#define SSID                    ("")
-#define PASSWORD                ("")
+#define WIFI_SSID               ("")
+#define WIFI_PASSWORD           ("")
 #define DATA_FILE_NAME          ("/data.txt")
 #define MQTT_SERVER_URI         ("broker.emqx.io")
 #define MQTT_SERVER_PORT        (1883)
+#define MQTT_USER               ("")
+#define MQTT_PASSWORD           ("")
 #define MQTT_TOPIC_NAME         ("esp32/pi2/sensor")
 
 #define Board                   ("ESP-32")
@@ -127,7 +129,7 @@ void wakeup_reason() {
 
 void set_wifi_connection() {
   WiFi.mode(WIFI_STA);
-  WiFi.begin(SSID, PASSWORD);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
   // wait for WiFi connection
   unsigned int tries = 0;
@@ -406,7 +408,7 @@ void set_mqtt_connection() {
 
   unsigned int mqtt_connection_tries = 0;
   while ( !client.connected() ) {
-    if (client.connect("ESP32Producer")) {
+    if (client.connect("ESP32Producer", MQTT_USER, MQTT_PASSWORD)) {
       Serial.println("connected!");
     }
 
