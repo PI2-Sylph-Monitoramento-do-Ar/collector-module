@@ -10,7 +10,7 @@
 
 #define uS_TO_S_FACTOR                  1000000ULL  /* micro seconds to seconds factor */
 #define HIBERNATION_TIME_S              2           /* Tempo que a ESP32 fica em deep sleep */
-#define AMOUNT_OF_AWAKENINGS_TO_UPLOAD  5           /* Após X despertares é feito upload */
+#define AMOUNT_OF_AWAKENINGS_TO_UPLOAD  1           /* Após X despertares é feito upload */
 
 #define WIFI_SSID               ("")
 #define WIFI_PASSWORD           ("")
@@ -19,7 +19,7 @@
 #define MQTT_SERVER_PORT        (1883)
 #define MQTT_USER               ("")
 #define MQTT_PASSWORD           ("")
-#define MQTT_TOPIC_NAME         ("esp32/pi2/sensor")
+#define MQTT_TOPIC_NAME         ("measurements")
 
 #define Board                   ("ESP-32")
 #define Voltage_Resolution      (3.3)
@@ -46,13 +46,15 @@ PubSubClient    client(espClient);
 RTC_DATA_ATTR   unsigned long amount_of_awakeups = 0;
 
 
-
+const int TOKEN_ID = 1;
 
 // Variáveis de controle para saber se os sensores foram ou não inicializados com sucesso
 bool mq2_is_working;
 bool mq131_is_working;
 bool bmp280_is_working;
 bool mics6418_is_working;
+
+unsigned int random_number;
 
 
 void setup()
@@ -80,6 +82,9 @@ void setup()
 void loop()
 {
   Serial.print("Time: "); Serial.println(rtc.getTime("%A, %B %d %Y %H:%M:%S"));
+
+  random_number = esp_random();
+  Serial.println("Random number: " + String(random_number));
 
   collect_and_save_mq2_sensor_data();
   collect_and_save_mq131_sensor_data();
@@ -327,10 +332,12 @@ int save_variable_to_file(float variable, const char* variable_label) {
   char buffer[256];
   sprintf(
     buffer,
-    "{\"%s\": \"%.2f\", \"datetime\": \"%s\"}\n",
+    "{\"%s\": \"%.2f\", \"datetime\": \"%s\", \"key\": \"%u\", \"totem_id\": \"%d\"}\n",
     variable_label,
     variable,
-    datetime
+    datetime,
+    random_number,
+    TOKEN_ID
   );
 
       // Serial.println(buffer);
@@ -408,7 +415,8 @@ void set_mqtt_connection() {
 
   unsigned int mqtt_connection_tries = 0;
   while ( !client.connected() ) {
-    if (client.connect("ESP32Producer", MQTT_USER, MQTT_PASSWORD)) {
+    // if (client.connect("ESP32Producer", MQTT_USER, MQTT_PASSWORD)) {
+    if (client.connect("ESP32Producer")) {
       Serial.println("connected!");
     }
 
