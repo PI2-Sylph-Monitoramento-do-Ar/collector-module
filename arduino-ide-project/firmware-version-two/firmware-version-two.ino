@@ -19,7 +19,7 @@
 #define MQTT_SERVER_PORT        (1883)
 #define MQTT_USER               ("")
 #define MQTT_PASSWORD           ("")
-#define MQTT_TOPIC_NAME         ("measurements")
+#define MQTT_TOPIC_NAME         ("pi/unb/sylph/measurements")
 
 #define Board                   ("ESP-32")
 #define Voltage_Resolution      (3.3)
