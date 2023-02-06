@@ -12,8 +12,8 @@
 #define HIBERNATION_TIME_S              2           /* Tempo que a ESP32 fica em deep sleep */
 #define AMOUNT_OF_AWAKENINGS_TO_UPLOAD  1           /* Após X despertares é feito upload */
 
-#define WIFI_SSID               ("")
-#define WIFI_PASSWORD           ("")
+#define WIFI_SSID               ("DiFi")
+#define WIFI_PASSWORD           ("123456789")
 #define DATA_FILE_NAME          ("/data.txt")
 #define MQTT_SERVER_URI         ("broker.emqx.io")
 #define MQTT_SERVER_PORT        (1883)
@@ -21,16 +21,17 @@
 #define MQTT_PASSWORD           ("")
 #define MQTT_TOPIC_NAME         ("pi/unb/sylph/measurements")
 
-#define Board                   ("ESP-32")
-#define Voltage_Resolution      (3.3)
-#define MICS_Voltage_Resolution (5.0)
-#define ADC_Bit_Resolution      (12)
-#define MAX_ANALOG_STEP         (4095)
+#define Board                    ("ESP-32")
+#define Voltage_Resolution_MQ2   (3.3)
+#define Voltage_Resolution_MQ131 (3.3)
+#define MICS_Voltage_Resolution  (5.0)
+#define ADC_Bit_Resolution       (12)
+#define MAX_ANALOG_STEP          (4095)
 
-#define MQ2_GPIO_PIN            (36)
+#define MQ2_GPIO_PIN            (39)
 #define RatioMQ2CleanAir        (9.83)
 
-#define MQ131_GPIO_PIN          (34)
+#define MQ131_GPIO_PIN          (36)
 #define RatioMQ131CleanAir      (15)
 
 #define CO_GPIO_PIN             (5)
@@ -38,8 +39,8 @@
 #define NH3_GPIO_PIN            (17)
 
 Adafruit_BMP280 bmp;
-MQUnifiedsensor MQ2   (Board, Voltage_Resolution, ADC_Bit_Resolution, MQ2_GPIO_PIN,   "MQ-2");
-MQUnifiedsensor MQ131 (Board, Voltage_Resolution, ADC_Bit_Resolution, MQ131_GPIO_PIN, "MQ-131");
+MQUnifiedsensor MQ2   (Board, Voltage_Resolution_MQ2,   ADC_Bit_Resolution, MQ2_GPIO_PIN,   "MQ-2");
+MQUnifiedsensor MQ131 (Board, Voltage_Resolution_MQ131, ADC_Bit_Resolution, MQ131_GPIO_PIN, "MQ-131");
 ESP32Time       rtc;
 WiFiClient      espClient;
 PubSubClient    client(espClient);
@@ -267,10 +268,10 @@ int collect_and_save_mq2_sensor_data() {
 int collect_and_save_mq131_sensor_data() {
   if(mq131_is_working) {
     MQ131.update();
-    float co2 = MQ131.readSensor();
+    float o3 = MQ131.readSensor();
 
     // Serial.print("CO2 "); Serial.print(co2); Serial.println(" PPM");
-    return save_variable_to_file(co2, "co2");
+    return save_variable_to_file(o3, "o3");
   }
   Serial.println("MQ131 sensor is not working!");
   return -11;
@@ -411,20 +412,20 @@ void set_mqtt_connection() {
 
   client.setServer(MQTT_SERVER_URI, MQTT_SERVER_PORT);
 
-  Serial.print("Connecting to MQTT... ");
+  Serial.println("Connecting to MQTT... ");
 
   unsigned int mqtt_connection_tries = 0;
   while ( !client.connected() ) {
     // if (client.connect("ESP32Producer", MQTT_USER, MQTT_PASSWORD)) {
     if (client.connect("ESP32Producer")) {
-      Serial.println("connected!");
+      Serial.println("Connected to MQTT Server!");
     }
 
     else {
       Serial.println("Failed to connect! Trying again...");
       delay(500);
 
-      if((mqtt_connection_tries++) > 5) {
+      if((mqtt_connection_tries++) > 3) {
         Serial.println("Was not able to connect to MQTT server. Restarting...");
         delay(3000);
         ESP.restart();
