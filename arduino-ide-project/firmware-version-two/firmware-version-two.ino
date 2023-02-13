@@ -9,10 +9,10 @@
 
 
 #define uS_TO_S_FACTOR                  1000000ULL  /* micro seconds to seconds factor */
-#define HIBERNATION_TIME_S              2           /* Tempo que a ESP32 fica em deep sleep */
+#define HIBERNATION_TIME_S              1           /* Tempo que a ESP32 fica em deep sleep */
 #define AMOUNT_OF_AWAKENINGS_TO_UPLOAD  1           /* Após X despertares é feito upload */
 
-#define WIFI_SSID               ("DiFi")
+#define WIFI_SSID               ("Sylph")
 #define WIFI_PASSWORD           ("123456789")
 #define DATA_FILE_NAME          ("/data.txt")
 #define MQTT_SERVER_URI         ("broker.emqx.io")
@@ -34,6 +34,8 @@
 #define MQ131_GPIO_PIN          (36)
 #define RatioMQ131CleanAir      (15)
 
+#define BUILTIN_LED             (2)
+
 #define CO_GPIO_PIN             (5)
 #define NO2_GPIO_PIN            (16)
 #define NH3_GPIO_PIN            (17)
@@ -47,8 +49,6 @@ PubSubClient    client(espClient);
 RTC_DATA_ATTR   unsigned long amount_of_awakeups = 0;
 
 
-const int TOKEN_ID = 1;
-
 // Variáveis de controle para saber se os sensores foram ou não inicializados com sucesso
 bool mq2_is_working;
 bool mq131_is_working;
@@ -57,11 +57,18 @@ bool mics6418_is_working;
 
 unsigned int random_number;
 
+bool wifi_connected = false;
+
 
 void setup()
 {
   Serial.begin(115200); delay(10);
   while ( !Serial )     delay(100);
+  wifi_connected = false;
+
+  // Turn BUILTIN_LED ON
+  pinMode(BUILTIN_LED, OUTPUT);
+  digitalWrite(BUILTIN_LED, LOW);
 
   esp_sleep_enable_timer_wakeup(HIBERNATION_TIME_S * uS_TO_S_FACTOR);
   wakeup_reason();
@@ -117,6 +124,8 @@ void wakeup_reason() {
     default:
       Serial.println("Wakeup caused by unknown reason. Fixing time...");
       set_wifi_connection();
+      wifi_connected = true;
+      digitalWrite(BUILTIN_LED, HIGH);
 
       configTime(0, 0, "pool.ntp.org");
       Serial.print(F("Waiting for NTP time sync... "));
@@ -142,11 +151,11 @@ void set_wifi_connection() {
   Serial.print("Waiting for WiFi to connect...");
   while ((WiFi.status() != WL_CONNECTED)) {
     Serial.print(".");
-    delay(1000);
+    delay(1500);
     tries += 1;
 
     // Se falhar mais de 5 vezes, a ESP32 volta a dormir
-    if (tries > 5) {
+    if (tries > 15) {
       Serial.println("\nFailed to connect to WiFi! Restarting...");
       ESP.restart();
     }
@@ -284,8 +293,8 @@ int collect_and_save_bmp280_sensor_data() {
     float altitude = bmp.readAltitude(1013.25);
 
     save_variable_to_file(temperature, "temperature");
-    save_variable_to_file(pressure, "pressure");
-    save_variable_to_file(altitude, "altitude");
+    save_variable_to_file(pressure,    "pressure");
+    save_variable_to_file(altitude,    "altitude");
     return 0;
   }
 
@@ -331,14 +340,14 @@ int save_variable_to_file(float variable, const char* variable_label) {
   }
 
   char buffer[256];
+
   sprintf(
     buffer,
-    "{\"%s\": \"%.2f\", \"datetime\": \"%s\", \"key\": \"%u\", \"totem_id\": \"%d\"}\n",
+    "{\"%s\": \"%.2f\", \"datetime\": \"%s\", \"key\": \"%u\", \"totem_id\": \"F0:08:D1:D2:70:D0\"}\n",
     variable_label,
     variable,
     datetime,
-    random_number,
-    TOKEN_ID
+    random_number
   );
 
       // Serial.println(buffer);
@@ -397,7 +406,7 @@ void upload_to_server() {
     else {
       buffer2[i++] = '\0';
       client.publish(MQTT_TOPIC_NAME, buffer2);
-      delay(500);
+      delay(300);
       i = 0;
                           Serial.println(buffer2);
     }
@@ -408,7 +417,10 @@ void upload_to_server() {
 }
 
 void set_mqtt_connection() {
-  set_wifi_connection();
+  if(wifi_connected == false)
+    set_wifi_connection();
+
+  digitalWrite(BUILTIN_LED, HIGH);
 
   client.setServer(MQTT_SERVER_URI, MQTT_SERVER_PORT);
 
@@ -425,9 +437,9 @@ void set_mqtt_connection() {
       Serial.println("Failed to connect! Trying again...");
       delay(500);
 
-      if((mqtt_connection_tries++) > 3) {
+      if((mqtt_connection_tries++) > 1) {
         Serial.println("Was not able to connect to MQTT server. Restarting...");
-        delay(3000);
+        // delay(3000);
         ESP.restart();
       }
     }
